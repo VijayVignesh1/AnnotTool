@@ -16,12 +16,13 @@ import os
 import csv
 from tkinter import filedialog
 
-class Example(tk.Frame):
+class PointAnnotation(tk.Frame):
     """Illustrate how to drag items on a Tkinter canvas"""
 
     def __init__(self, parent,images_folder):
         tk.Frame.__init__(self, parent)
 
+        self.parent=parent
         self.images_folder=images_folder
         self.images=glob.glob(self.images_folder+"*.jpg")
 
@@ -58,9 +59,13 @@ class Example(tk.Frame):
         B_save=ttk.Button(self.canvas,text="Save",command=self.saveData)
         B_save.grid(row = 1, column = 3, pady = 10, padx = 10)
 
+        B_quit=ttk.Button(self.canvas,text="Quit",command=self.quit)
+        B_quit.grid(row = 1, column = 3, pady = 10, padx = 10)
+
         self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2-50,anchor=tk.SW,window=B_next)
         self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2,anchor=tk.SW,window=B_back)
         self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2+50,anchor=tk.SW,window=B_save)
+        self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2+200,anchor=tk.SW,window=B_quit)
 
         self.canvas.bind("<Button 1>", self.click)
 
@@ -82,6 +87,7 @@ class Example(tk.Frame):
             writer.writeheader()
             for key in self.annotation_dict:
                 writer.writerow({'image': key, 'annotation': self.annotation_dict[key]})
+        self.parent.destroy()
     def nextImage(self):
         self.current_index=(self.current_index + 1) % len(self.images)
         self.img = cv2.imread(self.images[self.current_index])
@@ -123,6 +129,9 @@ class Example(tk.Frame):
             y_img=int(y*(img.shape[0]/500))
             # print(x_img,y_img)
 
+    def quit(self):
+        self.parent.destroy()
+
 class initialDialogue(tk.Frame):
     """Illustrate how to drag items on a Tkinter canvas"""
 
@@ -154,6 +163,7 @@ class initialDialogue(tk.Frame):
         y=7
         # self.cbutton= ttk.Button(root, text="OK", command=self.scan)
         y+=1
+        self.is_quit=0
         # self.cbutton.grid(row=10, column=3, sticky = tk.W + tk.E)
         self.bbutton= ttk.Button(self.root, text="Browse", command=self.browse)
         self.bbutton.grid(row=1, column=3)
@@ -171,110 +181,219 @@ class initialDialogue(tk.Frame):
         r1.place(x=100,y=35)
         r2.place(x=165, y=35)
         ok_button=ttk.Button(self.root, text="OK", command=self.submit)
-        ok_button.place(x=90,y=70)
+        ok_button.place(x=150,y=70)
+        quit_button=ttk.Button(self.root, text="Quit", command=self.quit)
+        quit_button.place(x=20,y=70)
     def submit(self):
+        self.foldername=self.folder.get()
+        self.point=self.v0.get()
+        # print(self.foldername)
         self.root.destroy()
     def browse(self):
         # Tk().withdraw() 
         self.foldername = filedialog.askdirectory()
         self.folder.set(self.foldername)
+    def quit(self):
+        self.is_quit=1
+        self.root.destroy()
 
+class RectangleAnnotate(tk.Frame):
+    """Illustrate how to drag items on a Tkinter canvas"""
+
+    def __init__(self, parent,images_folder):
+        tk.Frame.__init__(self, parent)
+        self.parent=parent
+        self.images_folder=images_folder
+        self.images=glob.glob(self.images_folder+"*.jpg")
+
+        self.current_index=0
+        
+        self.annotation_dict={}
+
+        self.img = cv2.imread(self.images[0])
+        self.img = cv2.resize(self.img,(500,500))
+        # create a canvas
+        self.canvas = tk.Canvas(width=self.img.shape[1]+100, height=self.img.shape[0])
+        self.canvas.pack()
+
+        self.img_tk = Image.fromarray(self.img)
+        self.image = itk.PhotoImage(image=self.img_tk)
+
+        self.canvas.create_image(0, 0, image=self.image, anchor=tk.NW)
+
+        self._drag_data = {"x": 0, "y": 0, "item": None}
+        self.start=[-1,-1]
+        self.rect=None
+        self.rect_list=[]
+
+        self.canvas.pack()
+        style = ttk.Style()
+        style.configure('TButton', font = 
+               ('calibri', 12, 'bold'), 
+                    borderwidth = '4')
+        style.map('TButton', foreground = [('active', 'green')], 
+                     background = [('active', 'black')]) 
+        B_next=ttk.Button(self.canvas,text="Next",command=self.nextImage)
+        B_next.grid(row = 1, column = 3, pady = 10, padx = 10)
+
+        B_back=ttk.Button(self.canvas,text="Back",command=self.previousImage)
+        B_back.grid(row = 1, column = 3, pady = 10, padx = 10)
+    
+        B_save=ttk.Button(self.canvas,text="Save",command=self.saveData)
+        B_save.grid(row = 1, column = 3, pady = 10, padx = 10)
+
+        B_clear_last_rect=ttk.Button(self.canvas,text="Clear",command=self.clearLastRect)
+        B_clear_last_rect.grid(row = 1, column = 3, pady = 10, padx = 10)
+
+        B_clear_all_rect=ttk.Button(self.canvas,text="Clear All",command=self.clearAllRect)
+        B_clear_all_rect.grid(row = 1, column = 3, pady = 10, padx = 10)
+
+        B_quit=ttk.Button(self.canvas,text="Quit",command=self.quit)
+        B_quit.grid(row = 1, column = 3, pady = 10, padx = 10)
+
+        self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2-150,anchor=tk.SW,window=B_next)
+        self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2-100,anchor=tk.SW,window=B_back)
+        self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2-50,anchor=tk.SW,window=B_save)
+        self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2,anchor=tk.SW,window=B_clear_last_rect)
+        self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2+50,anchor=tk.SW,window=B_clear_all_rect)
+        self.canvas.create_window(self.img.shape[1],self.img.shape[0]/2+200,anchor=tk.SW,window=B_quit)
+
+        # add bindings for clicking, dragging and releasing over
+        # any object with the "token" tag
+        self.canvas.bind("<ButtonPress-1>", self.drag_start)
+        self.canvas.bind("<ButtonRelease-1>", self.drag_stop)
+        self.canvas.bind("<B1-Motion>", self.drag)
+    def saveData(self):
+        self.annotation_dict[os.path.basename(self.images[self.current_index])]=self.rect_list
+        for i in self.images:
+            key=os.path.basename(i)
+            if key in self.annotation_dict.keys():
+                list_rect=self.annotation_dict[key]
+            else:
+                continue
+            img=cv2.imread(i)
+            for j in range(len(list_rect)):
+                self.annotation_dict[key][j][0]=int(list_rect[j][0]*(img.shape[1]/500))
+                self.annotation_dict[key][j][1]=int(list_rect[j][1]*(img.shape[0]/500))
+                self.annotation_dict[key][j][2]=int(list_rect[j][2]*(img.shape[1]/500))
+                self.annotation_dict[key][j][3]=int(list_rect[j][3]*(img.shape[0]/500))
+                img=cv2.rectangle(img,(self.annotation_dict[key][j][0],self.annotation_dict[key][j][1]),
+                                    (self.annotation_dict[key][j][2],self.annotation_dict[key][j][3]),(255,0,0),2)
+        save_output=self.images_folder+"/output.csv"
+        with open(save_output, 'w', newline='') as csvfile:
+            fieldnames = ['image', 'annotation']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for key in self.annotation_dict:
+                writer.writerow({'image': key, 'annotation': self.annotation_dict[key]})
+        self.parent.destroy()
+    def nextImage(self):
+        # print(self.annotation_dict)
+        self.annotation_dict[os.path.basename(self.images[self.current_index])]=self.rect_list
+        self.current_index=(self.current_index + 1) % len(self.images)
+        self.img = cv2.imread(self.images[self.current_index])
+        self.img = cv2.resize(self.img,(500,500))
+        self.img_tk = Image.fromarray(self.img)
+        self.image = itk.PhotoImage(image=self.img_tk)
+        self.canvas.create_image(0, 0, image=self.image, anchor=tk.NW) 
+        # print(os.path.basename(self.images[self.current_index]))
+        if os.path.basename(self.images[self.current_index]) in self.annotation_dict.keys():
+            # print(self.annotation_dict[os.path.basename(self.images[self.current_index])])
+            # x=self.annotation_dict[os.path.basename(self.images[self.current_index])][0]
+            # y=self.annotation_dict[os.path.basename(self.images[self.current_index])][1]
+            # cv2.circle(self.img,(x,y),1,(255,0,0),3)
+            self.rect_list=self.annotation_dict[os.path.basename(self.images[self.current_index])]
+            for x1,y1,x2,y2 in self.rect_list:
+                # print(x1,y1,x2,y2)
+                self.rect=self.canvas.create_rectangle(x1,y1,x2,y2,fill="")
+        else:
+            self.rect_list=[]
+            self.annotation_dict[os.path.basename(self.images[self.current_index])]=self.rect_list
+ 
+        
+    def previousImage(self):
+        # print(self.annotation_dict)
+        self.annotation_dict[os.path.basename(self.images[self.current_index])]=self.rect_list
+        self.current_index=(self.current_index - 1) % len(self.images)
+        self.img = cv2.imread(self.images[self.current_index])
+        self.img = cv2.resize(self.img,(500,500))
+        self.img_tk = Image.fromarray(self.img)
+        self.image = itk.PhotoImage(image=self.img_tk)
+        self.canvas.create_image(0, 0, image=self.image, anchor=tk.NW)
+        if os.path.basename(self.images[self.current_index]) in self.annotation_dict.keys():
+            # print(self.annotation_dict[os.path.basename(self.images[self.current_index])])
+            # x=self.annotation_dict[os.path.basename(self.images[self.current_index])][0]
+            # y=self.annotation_dict[os.path.basename(self.images[self.current_index])][1]
+            # cv2.circle(self.img,(x,y),1,(255,0,0),3)
+            self.rect_list=self.annotation_dict[os.path.basename(self.images[self.current_index])]
+            for i in self.rect_list:
+                self.rect=self.canvas.create_rectangle(i[0],i[1],i[2],i[3],fill="")
+        else:
+            self.rect_list=[]
+            self.annotation_dict[os.path.basename(self.images[self.current_index])]=self.rect_list
+
+    def clearLastRect(self):
+        if len(self.rect_list)>0:
+            del self.rect_list[-1]
+        self.img = cv2.imread(self.images[self.current_index])
+        self.img = cv2.resize(self.img,(500,500))
+        self.img_tk = Image.fromarray(self.img)
+        self.image = itk.PhotoImage(image=self.img_tk)
+        self.canvas.create_image(0, 0, image=self.image, anchor=tk.NW)
+        if os.path.basename(self.images[self.current_index]) in self.annotation_dict.keys():
+            # print(self.annotation_dict[os.path.basename(self.images[self.current_index])])
+            # x=self.annotation_dict[os.path.basename(self.images[self.current_index])][0]
+            # y=self.annotation_dict[os.path.basename(self.images[self.current_index])][1]
+            # cv2.circle(self.img,(x,y),1,(255,0,0),3)
+            self.rect_list=self.annotation_dict[os.path.basename(self.images[self.current_index])]
+            for i in self.rect_list:
+                self.rect=self.canvas.create_rectangle(i[0],i[1],i[2],i[3],fill="")
+        else:
+            self.rect_list=[]
+            self.annotation_dict[os.path.basename(self.images[self.current_index])]=self.rect_list              
+    def clearAllRect(self):
+        if len(self.rect_list)>0:
+            self.rect_list=[]
+        self.img = cv2.imread(self.images[self.current_index])
+        self.img = cv2.resize(self.img,(500,500))
+        self.img_tk = Image.fromarray(self.img)
+        self.image = itk.PhotoImage(image=self.img_tk)
+        self.canvas.create_image(0, 0, image=self.image, anchor=tk.NW)
+        self.annotation_dict[os.path.basename(self.images[self.current_index])]=self.rect_list              
+
+    def quit(self):
+        self.parent.destroy()
+
+    def drag_start(self, event):
+        """Begining drag of an object"""
+        # record the item and its location
+        self.start=[event.x,event.y]
+        self.rect=self.canvas.create_rectangle(self.start[0],self.start[1],self.start[0],self.start[1],fill="")
+        # print(self.rect)
+    def drag_stop(self, event):
+        """End drag of an object"""
+        self.rect_list.append([self.start[0],self.start[1],event.x,event.y])
+
+    def drag(self, event):
+        """Handle dragging of an object"""
+        self.canvas.coords(self.rect, self.start[0],self.start[1],event.x,event.y)
 
 
 if __name__ == "__main__":
-    """
-    root = tk.Tk()
-    file = filedialog.askopenfile(parent=root,mode='rb',title='Choose a file')
-    if file:
-        data = file.read()
-        file.close()
-        print("I got %d bytes from this file." % len(data))
-    """
-    root1=tk.Tk()
-    root1.geometry('250x125')
-    temp=initialDialogue(root1)
-    root1.mainloop()
-    print(temp.foldername, temp.v0)
-    image_name="dataset/images/1/"
-    root = tk.Tk()
-    root.title("Image Scanner")
-    # root.geometry("4000x4000")
-    Example(root,image_name).pack(fill="both", expand=True)
-    root.mainloop()
-# exit(0)
-
-
-
-
-
-
-
-
-
-
-
-# def draw_circle(event,x,y,flags,param):
-#     global mouseX,mouseY
-#     if event == cv2.EVENT_LBUTTONDBLCLK:
-#         cv2.circle(img,(x,y),2,(255,0,0),-1)
-#         mouseX,mouseY = x,y
-
-# img = cv2.imread('pages.jpg')
-# print(img.shape)
-# cv2.namedWindow('image')
-# cv2.setMouseCallback('image',draw_circle)
-# lists=[]
-# while(1):
-#     cv2.imshow('image',img)
-#     k = cv2.waitKey(20) & 0xFF
-#     if k == 27:
-#         break
-#     elif k == ord('a'):
-#         print(mouseX,mouseY)
-#         lists.append([mouseX,mouseY])
-#     elif k==ord('q'):
-#         cv2.destroyAllWindows()
-#         break
-# # exit(0)
-# # img = cv2.imread('sudokusmall.png')
-
-# rows,cols,ch = img.shape
-
-# # pts1 = np.float32([[56,65],[368,52],[28,387],[389,390]])
-# pts1=np.float32(lists)
-# pts2 = np.float32([[0,0],[300,0],[0,300],[300,300]])
-# print(pts1)
-# M = cv2.getPerspectiveTransform(pts1,pts2)
-
-# dst = cv2.warpPerspective(img,M,(300,300))
-
-# plt.subplot(121),plt.imshow(img),plt.title('Input')
-# plt.subplot(122),plt.imshow(dst),plt.title('Output')
-# plt.show()
-
-# warped = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
-# # T = threshold_local(warped, 11, offset = 10, method = "gaussian")
-# # print(T.shape)
-# for i in range(50,150,10):
-#     # warped = (warped > i).astype("uint8") * 255
-#     ret, thresh2 = cv2.threshold(warped, i, 255, cv2.THRESH_BINARY_INV) 
-
-#     # cv2.imshow("Scanned", imutils.resize(warped, height = 650))
-#     cv2.imshow('scanned',thresh2)
-#     cv2.waitKey(0)
-#     cv2.destroyAllWindows()
-# exit(0)
-
-# img = cv2.imread('drawing.png')
-# rows,cols,ch = img.shape
-
-# pts1 = np.float32([[50,50],[200,50],[50,200]])
-# pts2 = np.float32([[10,100],[200,50],[100,250]])
-
-# M = cv2.getAffineTransform(pts1,pts2)
-
-# dst = cv2.warpAffine(img,M,(cols,rows))
-
-# plt.subplot(121),plt.imshow(img),plt.title('Input')
-# plt.subplot(122),plt.imshow(dst),plt.title('Output')
-# plt.show()
+    root_init=tk.Tk()
+    root_init.geometry('250x125')
+    temp=initialDialogue(root_init)
+    root_init.mainloop()
+    if not temp.is_quit:
+        if temp.point==1:
+            images_folder=temp.foldername+'/'
+            root_point = tk.Tk()
+            root_point.title("Image Scanner")
+            PointAnnotation(root_point,images_folder).pack(fill="both", expand=True)
+            root_point.mainloop()
+        if temp.point==2:
+            images_folder='D:/Vijay Code/Personal Projects/Hockey_puck_track/dataset/images/1/'
+            root_point = tk.Tk()
+            root_point.title("Image Scanner")
+            RectangleAnnotate(root_point,images_folder).pack(fill="both", expand=True)
+            root_point.mainloop()
