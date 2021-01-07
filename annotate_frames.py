@@ -367,16 +367,21 @@ class RectangleAnnotate(tk.Frame):
     def drag_start(self, event):
         """Begining drag of an object"""
         # record the item and its location
-        self.start=[event.x,event.y]
-        self.rect=self.canvas.create_rectangle(self.start[0],self.start[1],self.start[0],self.start[1],fill="")
+        if event.x<500 and event.y<500:
+            self.start=[event.x,event.y]
+            self.rect=self.canvas.create_rectangle(self.start[0],self.start[1],self.start[0],self.start[1],fill="")
         # print(self.rect)
     def drag_stop(self, event):
         """End drag of an object"""
-        self.rect_list.append([self.start[0],self.start[1],event.x,event.y])
+        if event.x<500 and event.y<500 and self.start!=[-1,-1]:
+            self.rect_list.append([self.start[0],self.start[1],event.x,event.y])
+            self.start=[-1,-1]
 
     def drag(self, event):
         """Handle dragging of an object"""
-        self.canvas.coords(self.rect, self.start[0],self.start[1],event.x,event.y)
+        if event.x<500 and event.y<500 and self.start!=[-1,-1]:
+            self.canvas.coords(self.rect, self.start[0],self.start[1],event.x,event.y)
+
 
 
 if __name__ == "__main__":
